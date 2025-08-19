@@ -12,124 +12,9 @@
 	import ResponseMessage from './ResponseMessage.svelte';
 	import UserMessage from './UserMessage.svelte';
 
-	// Resizable bubble state - SIMPLIFIED
-	let isResizing = false;
-	let bubbleWidth = 'auto';
+	// Fixed width system - no resizing
 	let bubbleElement;
-	let showResizeHandle = false;
-	let isInitialRender = true;
-
-	// Width system - evaluate once and never change automatically
-	let isUserMessage = false;
-	let minWidth = 400;
-	let maxWidth = 900;
-	// Fixed width - never changes automatically
 	const defaultWidth = '1152px'; // Always use prompt width
-
-	// Disable resize functionality on mobile
-	$: enableResize = !$mobile;
-
-	// Initialize component - set everything once and never change automatically
-	onMount(() => {
-		// Set message type and constraints ONCE
-		isUserMessage = history.messages[messageId]?.role === 'user';
-		minWidth = isUserMessage ? 300 : 400;
-		maxWidth = isUserMessage ? 800 : 900;
-
-		// Load saved width
-		const savedKey = isUserMessage ? 'userBubbleWidth' : 'llmBubbleWidth';
-		const savedWidth = localStorage.getItem(savedKey);
-
-		if (savedWidth && savedWidth !== 'auto') {
-			bubbleWidth = savedWidth;
-		} else {
-			// Use fixed default width
-			bubbleWidth = defaultWidth;
-		}
-
-		// Apply CSS and lock width
-		setTimeout(() => {
-			if (bubbleElement) {
-				bubbleElement.style.width = bubbleWidth;
-				bubbleElement.style.maxWidth = bubbleWidth;
-				bubbleElement.style.minWidth = `${minWidth}px`;
-				// Prevent any future automatic changes
-				bubbleElement.style.setProperty('width', bubbleWidth, 'important');
-				bubbleElement.style.setProperty('max-width', bubbleWidth, 'important');
-			}
-			isInitialRender = false;
-		}, 50);
-	});
-
-	const handleResizeStart = (e) => {
-		isResizing = true;
-		e.preventDefault();
-
-		const startX = e.clientX;
-		const startWidth = bubbleElement.offsetWidth;
-
-		// Disable transitions during resize for instant feedback
-		bubbleElement.style.transition = 'none';
-
-		const handleMouseMove = (e) => {
-			if (!isResizing) return;
-
-			// Use requestAnimationFrame for smooth 60fps updates
-			requestAnimationFrame(() => {
-				const deltaX = e.clientX - startX;
-				// For user messages with left handle, dragging left increases width (reverse deltaX)
-				// For LLM messages with right handle, dragging right increases width (normal deltaX)
-				const adjustedDeltaX = isUserMessage ? -deltaX : deltaX;
-
-				// Resize with fixed constraints
-				const newWidth = Math.max(minWidth, Math.min(maxWidth, startWidth + adjustedDeltaX));
-				const newWidthPx = `${newWidth}px`;
-
-				// Update width directly
-				bubbleElement.style.setProperty('width', newWidthPx, 'important');
-				bubbleElement.style.setProperty('max-width', newWidthPx, 'important');
-				bubbleElement.style.setProperty('min-width', `${minWidth}px`, 'important');
-
-				// Update reactive variable
-				bubbleWidth = newWidthPx;
-			});
-		};
-
-		const handleMouseUp = () => {
-			isResizing = false;
-
-			// Re-enable transitions
-			bubbleElement.style.transition = '';
-
-			// Save to localStorage
-			const savedKey = isUserMessage ? 'userBubbleWidth' : 'llmBubbleWidth';
-			localStorage.setItem(savedKey, bubbleWidth);
-
-			// Lock the final width
-			bubbleElement.style.setProperty('width', bubbleWidth, 'important');
-			bubbleElement.style.setProperty('max-width', bubbleWidth, 'important');
-
-			document.removeEventListener('mousemove', handleMouseMove);
-			document.removeEventListener('mouseup', handleMouseUp);
-		};
-
-		document.addEventListener('mousemove', handleMouseMove);
-		document.addEventListener('mouseup', handleMouseUp);
-	};
-
-	const resetWidth = () => {
-		// Reset to default width
-		bubbleWidth = defaultWidth;
-		const savedKey = isUserMessage ? 'userBubbleWidth' : 'llmBubbleWidth';
-		localStorage.setItem(savedKey, defaultWidth);
-
-		// Apply CSS with !important to lock it
-		if (bubbleElement) {
-			bubbleElement.style.setProperty('width', bubbleWidth, 'important');
-			bubbleElement.style.setProperty('max-width', bubbleWidth, 'important');
-			bubbleElement.style.setProperty('min-width', `${minWidth}px`, 'important');
-		}
-	};
 
 	export let chatId;
 	export let selectedModels = [];
@@ -173,27 +58,16 @@
 		data-message-bubble
 		class="relative flex flex-col justify-between {$mobile
 			? 'px-2'
-			: 'px-5'} mb-3 w-full {enableResize && isUserMessage
-			? 'ml-auto'
-			: enableResize && !isUserMessage
-				? 'mr-auto'
-				: ''} rounded-lg group {isResizing
-			? 'select-none'
-			: !isInitialRender
-				? 'transition-all duration-300 ease-in-out'
-				: ''} overflow-hidden"
+			: 'px-5'} mb-3 w-full rounded-lg group overflow-hidden"
 		style="
 			min-height: 60px !important; 
 			contain: layout !important; 
 			overflow-wrap: break-word !important;
 			word-break: break-word !important;
-			width: {bubbleWidth} !important;
-			max-width: {bubbleWidth} !important;
-			min-width: {minWidth}px !important;
+			width: {defaultWidth} !important;
+			max-width: {defaultWidth} !important;
 			height: auto !important;
 		"
-		on:mouseenter={() => enableResize && (showResizeHandle = true)}
-		on:mouseleave={() => enableResize && !isResizing && (showResizeHandle = false)}
 	>
 		{#if history.messages[messageId]}
 			{#if history.messages[messageId].role === 'user'}
@@ -215,10 +89,6 @@
 					{deleteMessage}
 					{readOnly}
 					{topPadding}
-					showResizeHandle={enableResize && showResizeHandle}
-					{isResizing}
-					handleResizeStart={enableResize ? handleResizeStart : () => {}}
-					resetWidth={enableResize ? resetWidth : () => {}}
 				/>
 			{:else if (history.messages[history.messages[messageId].parentId]?.models?.length ?? 1) === 1}
 				<ResponseMessage
@@ -269,25 +139,6 @@
 					{topPadding}
 				/>
 			{/if}
-		{/if}
-
-		<!-- Resize Handle (only for LLM messages, user messages handle in UserMessage component) -->
-		{#if enableResize && !isUserMessage && (showResizeHandle || isResizing)}
-			<div
-				class="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize opacity-0 hover:opacity-20 bg-blue-500 transition-opacity duration-200 z-10"
-				on:mousedown={handleResizeStart}
-				on:dblclick={resetWidth}
-				title="Drag to resize bubble | Double-click to reset"
-			>
-				<!-- Resize indicator dots -->
-				<div
-					class="absolute inset-y-0 left-1/2 transform -translate-x-1/2 flex flex-col justify-center space-y-1"
-				>
-					<div class="w-0.5 h-0.5 bg-white rounded-full opacity-60"></div>
-					<div class="w-0.5 h-0.5 bg-white rounded-full opacity-60"></div>
-					<div class="w-0.5 h-0.5 bg-white rounded-full opacity-60"></div>
-				</div>
-			</div>
 		{/if}
 	</div>
 </div>

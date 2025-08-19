@@ -40,11 +40,6 @@
 	export let readOnly: boolean;
 	export let topPadding = false;
 
-	// Resize functionality passed from Message component
-	export let showResizeHandle = false;
-	export let isResizing = false;
-	export let handleResizeStart = () => {};
-	export let resetWidth = () => {};
 
 	let showDeleteConfirm = false;
 
@@ -329,26 +324,6 @@
 								<Markdown id={`${chatId}-${message.id}`} content={message.content} {topPadding} />
 							{/if}
 
-							<!-- Resize Handle for User Messages (disabled on mobile) -->
-							{#if !$mobile && (showResizeHandle || isResizing)}
-								<div
-									class="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize opacity-0 hover:opacity-20 bg-blue-500 transition-opacity duration-200 z-10 rounded-l-3xl"
-									on:mousedown={handleResizeStart}
-									on:dblclick={resetWidth}
-									role="separator"
-									aria-orientation="vertical"
-									title="Drag to resize bubble | Double-click to reset"
-								>
-									<!-- Resize indicator dots -->
-									<div
-										class="absolute inset-y-0 left-1/2 transform -translate-x-1/2 flex flex-col justify-center space-y-1"
-									>
-										<div class="w-0.5 h-0.5 bg-white rounded-full opacity-60"></div>
-										<div class="w-0.5 h-0.5 bg-white rounded-full opacity-60"></div>
-										<div class="w-0.5 h-0.5 bg-white rounded-full opacity-60"></div>
-									</div>
-								</div>
-							{/if}
 						</div>
 					</div>
 
